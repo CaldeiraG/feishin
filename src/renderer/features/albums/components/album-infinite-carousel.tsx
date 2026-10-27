@@ -29,7 +29,9 @@ interface AlbumCarouselProps {
     excludeIds?: string[];
     // Hide albums whose lastPlayedAt falls within the given number of days.
     // Not supported by all servers (album play dates require Navidrome).
+    // Pair with excludeUnplayed to also drop albums that were never played.
     excludeRecentDays?: number;
+    excludeUnplayed?: boolean;
     query?: Partial<Omit<AlbumListQuery, 'startIndex'>>;
     queryKey?: QueryFunctionContext['queryKey'];
     rowCount?: number;
@@ -59,6 +61,7 @@ const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[]
         enableRefresh,
         excludeIds,
         excludeRecentDays,
+        excludeUnplayed,
         query: additionalQuery,
         queryKey,
         rowCount = 1,
@@ -86,6 +89,10 @@ const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[]
         let items = allItems.filter((album) => {
             if (excludeIds?.includes(album.id)) {
                 return false;
+            }
+
+            if (minLastPlayed && !album.lastPlayedAt) {
+                return !excludeUnplayed;
             }
 
             if (
@@ -121,7 +128,15 @@ const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[]
             ),
             id: album.id,
         }));
-    }, [albums, controls, excludeIds, excludeRecentDays, deprioritizeSingles, rows]);
+    }, [
+        albums,
+        controls,
+        excludeIds,
+        excludeRecentDays,
+        excludeUnplayed,
+        deprioritizeSingles,
+        rows,
+    ]);
 
     const handleNextPage = useCallback(() => {}, []);
 

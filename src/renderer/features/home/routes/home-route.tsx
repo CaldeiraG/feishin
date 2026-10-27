@@ -92,6 +92,7 @@ const HomeRoute = () => {
         [HomeItem.REDISCOVER]: {
             enableRefresh: true,
             excludeRecentDays: rediscoverDays,
+            excludeUnplayed: true,
             itemType: LibraryItem.ALBUM,
             sortBy: AlbumListSort.RANDOM,
             sortOrder: SortOrder.ASC,
@@ -164,6 +165,7 @@ const HomeRoute = () => {
                                         deprioritizeSingles={carousel.deprioritizeSingles}
                                         enableRefresh={carousel.enableRefresh}
                                         excludeRecentDays={carousel.excludeRecentDays}
+                                        excludeUnplayed={carousel.excludeUnplayed}
                                         key={`carousel-${carousel.uniqueId}-${carousel.excludeRecentDays}`}
                                         queryKey={
                                             [
