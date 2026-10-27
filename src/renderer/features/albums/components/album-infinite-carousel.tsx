@@ -1,5 +1,5 @@
 import { QueryFunctionContext, useSuspenseInfiniteQuery } from '@tanstack/react-query';
-import { Suspense, useCallback, useMemo } from 'react';
+import { Suspense, useCallback, useMemo, useRef } from 'react';
 
 import { api } from '/@/renderer/api';
 import { queryKeys } from '/@/renderer/api/query-keys';
@@ -11,16 +11,26 @@ import {
 import { DataRow, MemoizedItemCard } from '/@/renderer/components/item-card/item-card';
 import { useDefaultItemListControls } from '/@/renderer/components/item-list/helpers/item-list-controls';
 import { useGridRows } from '/@/renderer/components/item-list/helpers/use-grid-rows';
-import { useCurrentServerId } from '/@/renderer/store';
+import { useCurrentServer, useCurrentServerId } from '/@/renderer/store';
+import { randomString } from '/@/renderer/utils';
 import {
     Album,
     AlbumListQuery,
     AlbumListResponse,
     AlbumListSort,
     LibraryItem,
+    ServerType,
     SortOrder,
 } from '/@/shared/types/domain-types';
 import { ItemListKey } from '/@/shared/types/types';
+
+// Navidrome re-rolls its random sort seed on every offset-0 random query, and
+// the seed is shared across all random album queries of a user. Without passing
+// an explicit seed filter, paginated random lists (explore, rediscover) get
+// re-permuted between pages, producing missing chunks and repeated content.
+// Passing a stable seed makes the random order deterministic across pages.
+const usesSeededRandom = (serverType: ServerType | undefined, sortBy: AlbumListSort) =>
+    serverType === ServerType.NAVIDROME && sortBy === AlbumListSort.RANDOM;
 
 interface AlbumCarouselProps {
     containerQuery?: ReturnType<typeof useGridCarouselContainerQuery>;
@@ -70,13 +80,28 @@ const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[]
         sortOrder,
         title,
     } = props;
+
+    const server = useCurrentServer();
+    const seedRandom = usesSeededRandom(server?.type, sortBy);
+
+    const seedRef = useRef<null | string>(null);
+
     const {
         data: albums,
         fetchNextPage,
         hasNextPage,
         isFetchingNextPage,
         refetch,
-    } = useAlbumListInfinite(sortBy, sortOrder, 20, additionalQuery, queryKey);
+    } = useAlbumListInfinite(sortBy, sortOrder, 20, additionalQuery, queryKey, seedRandom, seedRef);
+
+    const handleRefresh = useCallback(() => {
+        // Re-roll the seeded random order when refreshing the carousel
+        if (seedRandom && seedRef.current) {
+            seedRef.current = randomString(16);
+        }
+
+        refetch();
+    }, [refetch, seedRandom, seedRef]);
 
     const controls = useDefaultItemListControls();
 
@@ -142,10 +167,6 @@ const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[]
 
     const handlePrevPage = useCallback(() => {}, []);
 
-    const handleRefresh = useCallback(() => {
-        refetch();
-    }, [refetch]);
-
     // Gate on the raw page size, ignoring client-side filtering, so the carousel
     // is only hidden when the server has no visible albums at all
     if ((albums?.pages[0]?.items.length || 0) === 0) {
@@ -196,6 +217,8 @@ function useAlbumListInfinite(
     itemLimit: number,
     additionalQuery?: Partial<Omit<AlbumListQuery, 'startIndex'>>,
     overrideQueryKey?: QueryFunctionContext['queryKey'],
+    seedRandom?: boolean,
+    seedRef?: React.RefObject<null | string>,
 ) {
     const serverId = useCurrentServerId();
 
@@ -217,6 +240,10 @@ function useAlbumListInfinite(
         },
         initialPageParam: '0',
         queryFn: ({ pageParam, signal }) => {
+            const seed = seedRandom
+                ? (seedRef?.current ?? (seedRef ? (seedRef.current = randomString(16)) : null))
+                : null;
+
             return api.controller.getAlbumList({
                 apiClientProps: { serverId, signal },
                 query: {
@@ -225,6 +252,7 @@ function useAlbumListInfinite(
                     sortOrder,
                     startIndex: Number(pageParam),
                     ...additionalQuery,
+                    ...(seed ? { _custom: { ...additionalQuery?._custom, seed } } : {}),
                 },
             });
         },
