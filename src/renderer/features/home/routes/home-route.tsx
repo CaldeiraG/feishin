@@ -20,6 +20,7 @@ import {
     useHomeFeature,
     useHomeFeatureStyle,
     useHomeItems,
+    useRediscoverDays,
     useWindowSettings,
 } from '/@/renderer/store';
 import { Spinner } from '/@/shared/components/spinner/spinner';
@@ -41,6 +42,7 @@ const HomeRoute = () => {
     const homeFeature = useHomeFeature();
     const homeFeatureStyle = useHomeFeatureStyle();
     const homeItems = useHomeItems();
+    const rediscoverDays = useRediscoverDays();
     const containerQuery = useGridCarouselContainerQuery();
 
     const isJellyfin = server?.type === ServerType.JELLYFIN;
@@ -58,7 +60,9 @@ const HomeRoute = () => {
             title: t('page.home.playlists'),
         },
         [HomeItem.RANDOM]: {
+            deprioritizeSingles: true,
             enableRefresh: true,
+            excludeRecentDays: 15,
             itemType: LibraryItem.ALBUM,
             sortBy: AlbumListSort.RANDOM,
             sortOrder: SortOrder.ASC,
@@ -84,6 +88,14 @@ const HomeRoute = () => {
             sortBy: AlbumListSort.RELEASE_DATE,
             sortOrder: SortOrder.DESC,
             title: t('page.home.recentlyReleased'),
+        },
+        [HomeItem.REDISCOVER]: {
+            enableRefresh: true,
+            excludeRecentDays: rediscoverDays,
+            itemType: LibraryItem.ALBUM,
+            sortBy: AlbumListSort.RANDOM,
+            sortOrder: SortOrder.ASC,
+            title: t('page.home.rediscover'),
         },
     };
 
@@ -149,9 +161,18 @@ const HomeRoute = () => {
                                 return (
                                     <AlbumInfiniteCarousel
                                         containerQuery={containerQuery}
+                                        deprioritizeSingles={carousel.deprioritizeSingles}
                                         enableRefresh={carousel.enableRefresh}
-                                        key={`carousel-${carousel.uniqueId}`}
-                                        queryKey={['home', 'album', carousel.uniqueId] as const}
+                                        excludeRecentDays={carousel.excludeRecentDays}
+                                        key={`carousel-${carousel.uniqueId}-${carousel.excludeRecentDays}`}
+                                        queryKey={
+                                            [
+                                                'home',
+                                                'album',
+                                                carousel.uniqueId,
+                                                carousel.excludeRecentDays ?? null,
+                                            ] as const
+                                        }
                                         rowCount={1}
                                         sortBy={carousel.sortBy as AlbumListSort}
                                         sortOrder={carousel.sortOrder}

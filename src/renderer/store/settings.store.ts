@@ -76,6 +76,7 @@ const HomeItemSchema = z.enum([
     'recentlyAdded',
     'recentlyPlayed',
     'recentlyReleased',
+    'rediscover',
 ]);
 
 const AlbumGroupItemSchema = z.enum([
@@ -564,6 +565,7 @@ export const GeneralSettingsSchema = z.object({
     playlistTarget: PlaylistTargetSchema,
     primaryShade: z.number().min(0).max(9),
     qobuz: z.boolean(),
+    rediscoverDays: z.number().int().min(0).max(3650),
     resume: z.boolean(),
     shareExpiration: ShareExpirationSchema,
     showFavorites: z.boolean(),
@@ -983,6 +985,7 @@ export enum HomeItem {
     RECENTLY_ADDED = 'recentlyAdded',
     RECENTLY_PLAYED = 'recentlyPlayed',
     RECENTLY_RELEASED = 'recentlyReleased',
+    REDISCOVER = 'rediscover',
 }
 
 export enum PlayerbarSliderType {
@@ -1251,6 +1254,7 @@ const defaultHomeItemOrder: HomeItem[] = [
     HomeItem.RECENTLY_ADDED,
     HomeItem.RECENTLY_RELEASED,
     HomeItem.RECENTLY_PLAYED,
+    HomeItem.REDISCOVER,
     HomeItem.MOST_PLAYED,
     HomeItem.PLAYLISTS,
 ];
@@ -1397,6 +1401,7 @@ const initialState: SettingsState = {
         playlistTarget: PlaylistTarget.TRACK,
         primaryShade: 6,
         qobuz: true,
+        rediscoverDays: 90,
         resume: true,
         shareExpiration: {
             amount: 1,
@@ -2933,10 +2938,17 @@ export const useSettingsStore = createWithEqualityFn<SettingsSlice>()(
                     });
                 }
 
+                if (version < 35) {
+                    state.general.homeItems.push({
+                        disabled: false,
+                        id: HomeItem.REDISCOVER,
+                    });
+                }
+
                 return persistedState;
             },
             name: 'store_settings',
-            version: 34,
+            version: 35,
         },
     ),
 );
@@ -3184,6 +3196,9 @@ export const useHomeFeatureStyle = () =>
     useSettingsStore((state) => state.general.homeFeatureStyle);
 
 export const useHomeItems = () => useSettingsStore((state) => state.general.homeItems, shallow);
+
+export const useRediscoverDays = () =>
+    useSettingsStore((state) => state.general.rediscoverDays, shallow);
 
 export const useAlbumGroupItems = () =>
     useSettingsStore((state) => state.general.albumGroupItems, shallow);

@@ -4,6 +4,7 @@ import { AxiosError } from 'axios';
 import { api } from '/@/renderer/api';
 import { queryKeys } from '/@/renderer/api/query-keys';
 import { MutationOptions } from '/@/renderer/lib/react-query';
+import { HomeItem } from '/@/renderer/store';
 import { incrementQueuePlayCount } from '/@/renderer/store/player.store';
 import { ScrobbleArgs, ScrobbleResponse } from '/@/shared/types/domain-types';
 
@@ -40,6 +41,15 @@ export const useSendScrobble = (options?: MutationOptions) => {
                 // Invalidate most played carousel on home route
                 queryClient.invalidateQueries({
                     queryKey: ['home', 'mostPlayed'],
+                });
+
+                // Invalidate the recency-filtered album carousels on home route
+                queryClient.invalidateQueries({
+                    queryKey: ['home', 'album', HomeItem.RANDOM],
+                });
+
+                queryClient.invalidateQueries({
+                    queryKey: ['home', 'album', HomeItem.REDISCOVER],
                 });
 
                 // Invalidate album artist top songs

@@ -660,6 +660,7 @@
             "newlyAdded": "Newly added releases",
             "recentlyPlayed": "Recently played",
             "recentlyReleased": "Recently released",
+            "rediscover": "Rediscover from your library",
             "title": "$t(common.home)",
             "playlists": "Playlists"
         },
@@ -1195,6 +1196,7 @@
         "remotePassword": "Remote control server password",
         "remotePort_description": "Sets the port for the remote control server",
         "remotePort": "Remote control server port",
+        "rediscoverDays": "Rediscover threshold (days)",
         "remoteUsername_description": "Sets the username for the remote control server. If both username and password are empty, authentication will be disabled",
         "remoteUsername": "Remote control server username",
         "replayGainClipping_description": "Prevent clipping caused by {{ReplayGain}} by automatically lowering the gain",

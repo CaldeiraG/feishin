@@ -24,8 +24,12 @@ import { ItemListKey } from '/@/shared/types/types';
 
 interface AlbumCarouselProps {
     containerQuery?: ReturnType<typeof useGridCarouselContainerQuery>;
+    deprioritizeSingles?: boolean;
     enableRefresh?: boolean;
     excludeIds?: string[];
+    // Hide albums whose lastPlayedAt falls within the given number of days.
+    // Not supported by all servers (album play dates require Navidrome).
+    excludeRecentDays?: number;
     query?: Partial<Omit<AlbumListQuery, 'startIndex'>>;
     queryKey?: QueryFunctionContext['queryKey'];
     rowCount?: number;
@@ -34,11 +38,27 @@ interface AlbumCarouselProps {
     title: React.ReactNode | string;
 }
 
+const isSingleAlbum = (album: Album) => {
+    const types = [
+        ...(album.releaseTypes ?? []),
+        ...(album.releaseType ? [album.releaseType] : []),
+    ];
+
+    if (types.some((type) => type.toLowerCase().includes('single'))) {
+        return true;
+    }
+
+    // Fallback for albums without release tags: singles usually have 1-2 tracks
+    return album.songCount != null && album.songCount <= 2;
+};
+
 const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[] }) => {
     const {
         containerQuery,
+        deprioritizeSingles,
         enableRefresh,
         excludeIds,
+        excludeRecentDays,
         query: additionalQuery,
         queryKey,
         rowCount = 1,
@@ -59,11 +79,33 @@ const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[]
 
     const cards = useMemo(() => {
         const allItems = albums?.pages.flatMap((page: AlbumListResponse) => page.items) || [];
-        const filteredItems = excludeIds
-            ? allItems.filter((album) => !excludeIds.includes(album.id))
-            : allItems;
 
-        return filteredItems.map((album: Album) => ({
+        // eslint-disable-next-line react-hooks/purity
+        const minLastPlayed = excludeRecentDays ? Date.now() - excludeRecentDays * 86400000 : null;
+
+        let items = allItems.filter((album) => {
+            if (excludeIds?.includes(album.id)) {
+                return false;
+            }
+
+            if (
+                minLastPlayed &&
+                album.lastPlayedAt &&
+                Date.parse(album.lastPlayedAt) > minLastPlayed
+            ) {
+                return false;
+            }
+
+            return true;
+        });
+
+        if (deprioritizeSingles) {
+            items = items
+                .filter((album) => !isSingleAlbum(album))
+                .concat(items.filter(isSingleAlbum));
+        }
+
+        return items.map((album: Album) => ({
             content: (
                 <MemoizedItemCard
                     controls={controls}
@@ -79,7 +121,7 @@ const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[]
             ),
             id: album.id,
         }));
-    }, [albums, controls, excludeIds, rows]);
+    }, [albums, controls, excludeIds, excludeRecentDays, deprioritizeSingles, rows]);
 
     const handleNextPage = useCallback(() => {}, []);
 
@@ -89,11 +131,9 @@ const BaseAlbumInfiniteCarousel = (props: AlbumCarouselProps & { rows: DataRow[]
         refetch();
     }, [refetch]);
 
-    const firstPageItems = excludeIds
-        ? albums?.pages[0]?.items.filter((album) => !excludeIds.includes(album.id)) || []
-        : albums?.pages[0]?.items || [];
-
-    if (firstPageItems.length === 0) {
+    // Gate on the raw page size, ignoring client-side filtering, so the carousel
+    // is only hidden when the server has no visible albums at all
+    if ((albums?.pages[0]?.items.length || 0) === 0) {
         return null;
     }
 
